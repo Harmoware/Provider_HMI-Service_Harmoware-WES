@@ -24,10 +24,10 @@ import (
 )
 
 var (
-	nodesrv = flag.String("nodesrv", "127.0.0.1:9990", "Node ID Server")
-	noPrint = flag.Bool("noPrint", false, "do not display publish msg")
-	wsAddr  = flag.String("wsaddr", "localhost:10090", "HMI-Service WebSocket Listening Port")
-
+	nodesrv  = flag.String("nodesrv", "127.0.0.1:9990", "Node ID Server")
+	noPrint  = flag.Bool("noPrint", false, "Do not display publish msg")
+	wsAddr   = flag.String("wsaddr", "localhost:10090", "HMI-Service WebSocket Listening Port")
+	nosx     = flag.Bool("nosx", false, "Do not use synerex. standalone Websocket Service")
 	upgrader = websocket.Upgrader{} // use default options
 
 	mqttclient      *sxutil.SXServiceClient
@@ -652,7 +652,7 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 	}
 	// we need to remove chan if wsocket is closed.
 	mychan := make(chan []byte)
-	log.Printf("Starting socket :%v", w)
+	log.Printf("Starting socket :%v", mychan)
 	smu.Lock()
 	clientsSend = append(clientsSend, &mychan)
 	smu.Unlock()
@@ -707,31 +707,32 @@ func main() {
 	log.Printf("HMI-Service(%s) built %s sha1 %s", sxutil.GitVer, sxutil.BuildTime, sxutil.Sha1Ver)
 	flag.Parse()
 	go sxutil.HandleSigInt() //exit by Ctrl + C
-	sxutil.RegisterDeferFunction(sxutil.UnRegisterNode)
-
-	channelTypes := []uint32{pbase.WAREHOUSE_SVC, pbase.MQTT_GATEWAY_SVC}
-	// obtain synerex server address from nodeserv
-	srv, err := sxutil.RegisterNode(*nodesrv, "State-Publish", channelTypes, nil)
-	if err != nil {
-		log.Fatal("Can't register node...")
-	}
-	log.Printf("Connecting Server [%s]\n", srv)
-
-	wg := sync.WaitGroup{} // for syncing other goroutines
 
 	go runWebsocketServer() // start web socket server
+	wg := sync.WaitGroup{}  // for syncing other goroutines
 
-	sxServerAddress = srv
-	client := sxutil.GrpcConnectServer(srv)
-	argJSON1 := fmt.Sprintf("{Client:STATE_PUBLISH_MQTT}")
-	mqttclient = sxutil.NewSXServiceClient(client, pbase.MQTT_GATEWAY_SVC, argJSON1)
-	argJSON2 := fmt.Sprintf("{Client:STATE_PUBLISH_WAREHOUSE}")
-	warehouseclient = sxutil.NewSXServiceClient(client, pbase.WAREHOUSE_SVC, argJSON2)
+	if *nosx {
 
+	} else {
+		sxutil.RegisterDeferFunction(sxutil.UnRegisterNode)
+		channelTypes := []uint32{pbase.WAREHOUSE_SVC, pbase.MQTT_GATEWAY_SVC}
+		// obtain synerex server address from nodeserv
+		srv, err := sxutil.RegisterNode(*nodesrv, "State-Publish", channelTypes, nil)
+		if err != nil {
+			log.Fatal("Can't register node...")
+		}
+		log.Printf("Connecting Server [%s]\n", srv)
+		sxServerAddress = srv
+		client := sxutil.GrpcConnectServer(srv)
+		argJSON1 := fmt.Sprintf("{Client:STATE_PUBLISH_MQTT}")
+		mqttclient = sxutil.NewSXServiceClient(client, pbase.MQTT_GATEWAY_SVC, argJSON1)
+		argJSON2 := fmt.Sprintf("{Client:STATE_PUBLISH_WAREHOUSE}")
+		warehouseclient = sxutil.NewSXServiceClient(client, pbase.WAREHOUSE_SVC, argJSON2)
+		log.Print("Start Subscribe")
+		go subscribeWarehouseSupply(warehouseclient)
+		go subscribeMqttSupply(mqttclient)
+	}
 	wg.Add(1)
-	log.Print("Start Subscribe")
-	go subscribeWarehouseSupply(warehouseclient)
-	go subscribeMqttSupply(mqttclient)
 
 	wg.Wait()
 
