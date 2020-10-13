@@ -281,10 +281,11 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 			// we need to send other clients!
 			log.Printf("Sending to others:%s ", mes[5:])
 			sendAll(message[5:], &mychan)
+		} else {
 			noSpace := strings.Replace(mes[5:], " ", "", -1)
 			id, err := strconv.Atoi(noSpace)
 			if err != nil {
-				//log.Print(err, mes)
+				log.Print(err, mes)
 			} else {
 				smu.Lock()
 				if _, ok := clientList[int64(id)]; !ok {
