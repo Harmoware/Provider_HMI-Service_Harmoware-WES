@@ -111,10 +111,10 @@ func supplyWarehouseCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 		err := proto.Unmarshal(sp.Cdata.Entity, rcd)
 		if err == nil {
 			humanState := humanStateJson{
-				Currenttask:  fmt.Sprintf("%d/%d", len(rcd.PickedItem), rcd.WmsItemNum),
+				Currenttask:  fmt.Sprintf("%d/%d", len(rcd.PickedItem)+1, rcd.WmsItemNum),
 				Nextposition: rcd.NextItem,
 				Workingtime:  fmt.Sprintf("%dsec", rcd.ElapsedTime),
-				Movedistance: fmt.Sprintf("%f", rcd.MoveDistance),
+				Movedistance: fmt.Sprintf("%fm", rcd.MoveDistance),
 				Message:      rcd.Message,
 			}
 			msg, jerr := json.Marshal(humanState)
