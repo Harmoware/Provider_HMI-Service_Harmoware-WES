@@ -282,7 +282,7 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Sending to others:%s ", mes[5:])
 			sendAll(message[5:], &mychan)
 		} else {
-			noSpace := strings.Replace(mes[5:], " ", "", -1)
+			noSpace := strings.Replace(mes, " ", "", -1)
 			id, err := strconv.Atoi(noSpace)
 			if err != nil {
 				log.Print(err, mes)
