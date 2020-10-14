@@ -75,12 +75,19 @@ func subscribeWarehouseSupply(client *sxutil.SXServiceClient) {
 }
 
 //hololens message
+
+type pos2 struct {
+	X float32 `json:"x"`
+	Y float32 `json:"y"`
+}
 type humanStateJson struct {
-	Currenttask  string `json:"currenttask"`
-	Nextposition string `json:"nextposition"`
-	Workingtime  string `json:"workingtime"`
-	Movedistance string `json:"movedistance"`
-	Message      string `json:"message"`
+	Currenttask     string `json:"currenttask"`
+	Nextposition    string `json:"nextposition"`
+	Workingtime     string `json:"workingtime"`
+	Movedistance    string `json:"movedistance"`
+	Message         string `json:"message"`
+	Currentposition pos2   `json:"currentposition"`
+	Targetposition  pos2   `json:"targetposition"`
 }
 
 func supplyWarehouseCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
@@ -111,11 +118,13 @@ func supplyWarehouseCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 		err := proto.Unmarshal(sp.Cdata.Entity, rcd)
 		if err == nil {
 			humanState := humanStateJson{
-				Currenttask:  fmt.Sprintf("%d/%d", len(rcd.PickedItem)+1, rcd.WmsItemNum),
-				Nextposition: rcd.NextItem,
-				Workingtime:  fmt.Sprintf("%dsec", rcd.ElapsedTime),
-				Movedistance: fmt.Sprintf("%fm", rcd.MoveDistance),
-				Message:      rcd.Message,
+				Currenttask:     fmt.Sprintf("%d/%d", len(rcd.PickedItem)+1, rcd.WmsItemNum),
+				Nextposition:    rcd.NextItem,
+				Workingtime:     fmt.Sprintf("%dsec", rcd.ElapsedTime),
+				Movedistance:    fmt.Sprintf("%fm", rcd.MoveDistance),
+				Message:         rcd.Message,
+				Currentposition: pos2{X: rcd.LatestPos.X, Y: rcd.LatestPos.Y},
+				Targetposition:  pos2{X: rcd.TargetPos.X, Y: rcd.LatestPos.Y},
 			}
 			msg, jerr := json.Marshal(humanState)
 			if jerr != nil {

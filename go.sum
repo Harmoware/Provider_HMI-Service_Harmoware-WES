@@ -46,6 +46,8 @@ github.com/synerex/proto_wes v0.1.0 h1:qNIIZmKxbSaVG/1lkcl5tBUidai/Od9/HybWZscxH
 github.com/synerex/proto_wes v0.1.0/go.mod h1:BTjXQUhsxoZoPV6e2QhRRKR7HWCDqKZBmB2ziwWgMso=
 github.com/synerex/proto_wes v0.1.6 h1:hAdtuvQO0rrX6ND0sJlGwC5FtgIiua5z5B3qZgsKYNA=
 github.com/synerex/proto_wes v0.1.6/go.mod h1:BTjXQUhsxoZoPV6e2QhRRKR7HWCDqKZBmB2ziwWgMso=
+github.com/synerex/proto_wes v0.1.7 h1:mod/KsurmYAMaUru+hw9kTHiqVqr1wT0LByiz+a+Wwk=
+github.com/synerex/proto_wes v0.1.7/go.mod h1:BTjXQUhsxoZoPV6e2QhRRKR7HWCDqKZBmB2ziwWgMso=
 github.com/synerex/synerex_api v0.4.2 h1:JaMwWgcGyoxGOjHoDsbBW9lK7Qrd91BG2mmbGK4GFgA=
 github.com/synerex/synerex_api v0.4.2/go.mod h1:YGtZxFfrLc53MunFKpg56N1wmd3aHUvvqBxXsrW1rsc=
 github.com/synerex/synerex_nodeapi v0.5.4 h1:pR7lFvHv+1mplP1xvyDm8nh1vRNXhS4RgkcHGoBaRzM=
