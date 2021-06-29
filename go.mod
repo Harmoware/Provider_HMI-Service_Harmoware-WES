@@ -1,4 +1,4 @@
-module github.com/Harmoware/Provider-HMI-Service-Harmoware-WES
+module github.com/Harmoware/Provider_HMI-Service_Harmoware-WES
 
 go 1.14
 

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"html/template"
 	"log"
 	"net/http"
 	"strconv"
@@ -20,11 +19,13 @@ import (
 	api "github.com/synerex/synerex_api"
 	pbase "github.com/synerex/synerex_proto"
 	sxutil "github.com/synerex/synerex_sxutil"
+
+	ws "github.com/Harmoware/Provider_HMI-Service_Harmoware-WES/websocket"
 )
 
 var (
-	nodesrv  = flag.String("nodesrv", "127.0.0.1:9990", "Node ID Server")
-	wsAddr   = flag.String("wsaddr", "localhost:10090", "HMI-Service WebSocket Listening Port")
+	nodesrv = flag.String("nodesrv", "127.0.0.1:9990", "Node ID Server")
+
 	nosx     = flag.Bool("nosx", false, "Do not use synerex. standalone Websocket Service")
 	upgrader = websocket.Upgrader{} // use default options
 
@@ -34,10 +35,11 @@ var (
 	sxServerAddress string
 	mu              sync.Mutex
 	smu             sync.Mutex // for websocket
-	clientsSend     = make([]*chan []byte, 0)
+
+	clientsSend = make([]*chan []byte, 0)
 
 	clientMsg  = make(map[int64][]byte)
-	clientList = make(map[int64]*chan []byte)
+	clientList = make(map[int64]*chan []byte) // id と clientの 1対1対応
 )
 
 func init() {
@@ -138,90 +140,15 @@ func supplyWarehouseCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 	}
 }
 
-var rootTemplate = template.Must(template.New("").Parse(`
-<!DOCTYPE html>
-<html>
-<head>
-<title> HMI-Service WebSocket test page </title>
-<meta charset="utf-8">
-<script>  
-window.addEventListener("load", function(evt) {
-    var output = document.getElementById("output");
-    var input = document.getElementById("input");
-    var ws;
-    var print = function(message) {
-        var d = document.createElement("div");
-        d.textContent = message;
-        output.appendChild(d);
-    };
-    document.getElementById("open").onclick = function(evt) {
-        if (ws) {
-            return false;
-        }
-        ws = new WebSocket("{{.}}");
-        ws.onopen = function(evt) {
-            print("OPEN");
-        }
-        ws.onclose = function(evt) {
-            print("CLOSE");
-            ws = null;
-        }
-        ws.onmessage = function(evt) {
-            print("RECEIVE: " + evt.data);
-        }
-        ws.onerror = function(evt) {
-            print("ERROR: " + evt.data);
-        }
-        return false;
-    };
-    document.getElementById("send").onclick = function(evt) {
-        if (!ws) {
-            return false;
-        }
-        print("SEND: " + input.value);
-        ws.send(input.value);
-        return false;
-    };
-    document.getElementById("close").onclick = function(evt) {
-        if (!ws) {
-            return false;
-        }
-        ws.close();
-        return false;
-	};
-	document.getElementById("clear").onclick = function(evt){
-		while(output.firstChild){
-			output.removeChild(output.firstChild)
+// send message to websocket
+func handleSender(c *websocket.Conn, mychan *chan []byte) {
+	for {
+		mes, ok := <-*mychan
+		if !ok {
+			break // channel was closed!
 		}
+		c.WriteMessage(websocket.TextMessage, mes)
 	}
-});
-</script>
-</head>
-<body>
-<table>
-<tr><td valign="top" width="50%">
-<p>Click "Open" to create a connection to the server, 
-"Send" to send a message to the server and "Close" to close the connection. 
-
-<p> For sending message: "send:<message>" for sending other nodes.
-<p> "echo:" for echo test.
-
-<form>
-<button id="open">Open</button>
-<button id="close">Close</button>
-<p><input id="input" type="text" value="send:Hello world!" size="80">
-<button id="send">Send</button>
-</form>
-<button id="clear">Clear</button>
-</td><td valign="top" width="50%">
-<div id="output"></div>
-</td></tr></table>
-</body>
-</html>
-`))
-
-func home(w http.ResponseWriter, r *http.Request) {
-	rootTemplate.Execute(w, "ws://"+r.Host+"/w")
 }
 
 // send all
@@ -247,24 +174,16 @@ func sendOne(mes []byte, id int64) {
 	}
 }
 
-func handleSender(c *websocket.Conn, mychan *chan []byte) {
-	for {
-		mes, ok := <-*mychan
-		if !ok {
-			break // channel was closed!
-		}
-		c.WriteMessage(websocket.TextMessage, mes)
-	}
-}
-
 func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("Upgrade Error!:", err)
 		return
 	}
+	id := -1
+
 	// we need to remove chan if wsocket is closed.
-	mychan := make(chan []byte)
+	mychan := make(chan []byte) //for sending message
 	log.Printf("Starting socket :%v", mychan)
 	smu.Lock()
 	clientsSend = append(clientsSend, &mychan)
@@ -280,6 +199,7 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 		}
 		mes := string(message)
 		log.Printf("Receive: %s", mes)
+
 		if strings.HasPrefix(mes, "echo:") {
 			err = c.WriteMessage(mt, message[5:])
 			if err != nil {
@@ -290,25 +210,32 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 			// we need to send other clients!
 			log.Printf("Sending to others:%s ", mes[5:])
 			sendAll(message[5:], &mychan)
+
+		} else if strings.HasPrefix(mes, "send:") {
+			//do actions
+
 		} else {
+			// for first subscribe
 			noSpace := strings.Replace(mes, " ", "", -1)
-			id, err := strconv.Atoi(noSpace)
+			id, err = strconv.Atoi(noSpace)
 			if err != nil {
 				log.Print(err, mes)
 			} else {
 				smu.Lock()
-				if _, ok := clientList[int64(id)]; !ok {
-					clientList[int64(id)] = &mychan
-				}
+				clientList[int64(id)] = &mychan
 				smu.Unlock()
 			}
 		}
 	}
 	smu.Lock()
+
 	for i, v := range clientsSend {
 		if v == &mychan {
 			clientsSend = append(clientsSend[:i], clientsSend[i+1:]...)
 			close(mychan)
+			if id != -1 {
+				delete(clientList, int64(id))
+			}
 			log.Printf("Close channel %v", mychan)
 			break
 		}
@@ -317,24 +244,13 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func runWebsocketServer() {
-	log.Printf("Starting Websocket server on %s", *wsAddr)
-
-	http.HandleFunc("/", home)
-	http.HandleFunc("/w", handleWebsocket)
-
-	err := http.ListenAndServe(*wsAddr, nil)
-
-	log.Printf("Websocket listening Error!", err)
-}
-
 func main() {
 	log.Printf("HMI-Service(%s) built %s sha1 %s", sxutil.GitVer, sxutil.BuildTime, sxutil.Sha1Ver)
 	flag.Parse()
 	go sxutil.HandleSigInt() //exit by Ctrl + C
 
-	go runWebsocketServer() // start web socket server
-	wg := sync.WaitGroup{}  // for syncing other goroutines
+	go ws.RunWebsocketServer(handleWebsocket) // start web socket server
+	wg := sync.WaitGroup{}                    // for syncing other goroutines
 
 	if *nosx {
 
