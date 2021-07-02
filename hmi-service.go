@@ -20,6 +20,7 @@ import (
 	pbase "github.com/synerex/synerex_proto"
 	sxutil "github.com/synerex/synerex_sxutil"
 
+	pick "github.com/Harmoware/Provider_HMI-Service_Harmoware-WES/picking"
 	ws "github.com/Harmoware/Provider_HMI-Service_Harmoware-WES/websocket"
 )
 
@@ -39,11 +40,10 @@ var (
 	clientsSend = make([]*chan []byte, 0)
 
 	clientMsg  = make(map[int64][]byte)
-	clientList = make(map[int64]*chan []byte) // id と clientの 1対1対応
-)
+	clientList = make(map[int64]*chan []byte) // id と websocket-clientの 1対1対応
 
-func init() {
-}
+	userList = make(map[int64]*pick.WorkerInfo)
+)
 
 func reconnectClient(client *sxutil.SXServiceClient) {
 	mu.Lock()
@@ -77,7 +77,6 @@ func subscribeWarehouseSupply(client *sxutil.SXServiceClient) {
 }
 
 //hololens message
-
 type pos2 struct {
 	X float32 `json:"x"`
 	Y float32 `json:"y"`
@@ -211,13 +210,21 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 			log.Printf("Sending to others:%s ", mes[5:])
 			sendAll(message[5:], &mychan)
 
-		} else if strings.HasPrefix(mes, "send:") {
+		} else if strings.HasPrefix(mes, "cmd:") {
 			//do actions
+			action := mes[4:]
+			if strings.HasPrefix(action, "status") {
+				//send status
 
-		} else {
+			} else if strings.HasPrefix(action, "next") {
+
+			}
+
+		} else if strings.HasPrefix(mes, "id:") {
 			// for first subscribe
-			noSpace := strings.Replace(mes, " ", "", -1)
-			id, err = strconv.Atoi(noSpace)
+			//noSpace := strings.Replace(mes, " ", "", -1)
+			//id, err = strconv.Atoi(noSpace)
+			id, err = strconv.Atoi(mes[3:])
 			if err != nil {
 				log.Print(err, mes)
 			} else {
