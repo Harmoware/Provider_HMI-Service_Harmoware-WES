@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -10,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/golang/protobuf/proto"
 
@@ -21,6 +18,7 @@ import (
 	sxutil "github.com/synerex/synerex_sxutil"
 
 	pick "github.com/Harmoware/Provider_HMI-Service_Harmoware-WES/picking"
+	sx "github.com/Harmoware/Provider_HMI-Service_Harmoware-WES/synerex"
 	ws "github.com/Harmoware/Provider_HMI-Service_Harmoware-WES/websocket"
 )
 
@@ -33,48 +31,17 @@ var (
 	mqttclient      *sxutil.SXServiceClient
 	warehouseclient *sxutil.SXServiceClient
 
-	sxServerAddress string
-	mu              sync.Mutex
-	smu             sync.Mutex // for websocket
+	smu sync.Mutex // for websocket
 
 	clientsSend = make([]*chan []byte, 0)
 
 	clientMsg  = make(map[int64][]byte)
 	clientList = make(map[int64]*chan []byte) // id と websocket-clientの 1対1対応
 
-	userList = make(map[int64]*pick.WorkerInfo)
+	userList = make(map[int64]*pick.WorkerInfo) // id と user
+
+	batchList = make([]*pick.BatchInfo, 0)
 )
-
-func reconnectClient(client *sxutil.SXServiceClient) {
-	mu.Lock()
-	if client.SXClient != nil {
-		client.SXClient = nil
-		log.Printf("Client reset \n")
-	}
-	mu.Unlock()
-	time.Sleep(5 * time.Second) // wait 5 seconds to reconnect
-	mu.Lock()
-	if client.SXClient == nil {
-		newClt := sxutil.GrpcConnectServer(sxServerAddress)
-		if newClt != nil {
-			log.Printf("Reconnect server [%s]\n", sxServerAddress)
-			client.SXClient = newClt
-		}
-	} else { // someone may connect!
-		log.Print("Use reconnected server\n", sxServerAddress)
-	}
-	mu.Unlock()
-}
-
-func subscribeWarehouseSupply(client *sxutil.SXServiceClient) {
-	//wait message from CLI
-	ctx := context.Background()
-	for { // make it continuously working..
-		client.SubscribeSupply(ctx, supplyWarehouseCallback)
-		log.Print("Error on subscribe WAREHOUSE")
-		reconnectClient(client)
-	}
-}
 
 //hololens message
 type pos2 struct {
@@ -100,42 +67,36 @@ func supplyWarehouseCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 
 	switch sp.SupplyName {
 
-	case "WES_amr_state_publish":
-		rcd := &proto_wes.AmrState{}
+	case "CLI_wms_order":
+		rcd := &proto_wes.WmsOrder{}
 		err := proto.Unmarshal(sp.Cdata.Entity, rcd)
 		if err == nil {
-
+			log.Printf("fail to load order")
 		}
+		newB := pick.NewBatchInfo(rcd)
+		batchList = append(batchList, newB)
 
-	case "WES_state_publish":
-		rcd := &proto_wes.WesState{}
-		err := proto.Unmarshal(sp.Cdata.Entity, rcd)
-		if err == nil {
-
-		}
-
-	case "WES_human_state_publish":
-		rcd := &proto_wes.WesHumanState{}
-		err := proto.Unmarshal(sp.Cdata.Entity, rcd)
-		if err == nil {
-			humanState := humanStateJson{
-				Currenttask:     fmt.Sprintf("%d/%d", len(rcd.PickedItem)+1, rcd.WmsItemNum),
-				Nextposition:    rcd.NextItem,
-				Workingtime:     fmt.Sprintf("%dsec", rcd.ElapsedTime),
-				Movedistance:    fmt.Sprintf("%fm", rcd.MoveDistance),
-				Message:         rcd.Message,
-				Currentposition: pos2{X: rcd.LatestPos.X, Y: rcd.LatestPos.Y},
-				Targetposition:  pos2{X: rcd.TargetPos.X, Y: rcd.LatestPos.Y},
-			}
-			msg, jerr := json.Marshal(humanState)
-			if jerr != nil {
-				log.Print(jerr)
-				break
-			} else {
-				sendOne(msg, rcd.Id)
-			}
-		}
-
+		// case "WES_human_state_publish":
+		// 	rcd := &proto_wes.WesHumanState{}
+		// 	err := proto.Unmarshal(sp.Cdata.Entity, rcd)
+		// 	if err == nil {
+		// 		humanState := humanStateJson{
+		// 			Currenttask:     fmt.Sprintf("%d/%d", len(rcd.PickedItem)+1, rcd.WmsItemNum),
+		// 			Nextposition:    rcd.NextItem,
+		// 			Workingtime:     fmt.Sprintf("%dsec", rcd.ElapsedTime),
+		// 			Movedistance:    fmt.Sprintf("%fm", rcd.MoveDistance),
+		// 			Message:         rcd.Message,
+		// 			Currentposition: pos2{X: rcd.LatestPos.X, Y: rcd.LatestPos.Y},
+		// 			Targetposition:  pos2{X: rcd.TargetPos.X, Y: rcd.LatestPos.Y},
+		// 		}
+		// 		msg, jerr := json.Marshal(humanState)
+		// 		if jerr != nil {
+		// 			log.Print(jerr)
+		// 			break
+		// 		} else {
+		// 			sendOne(msg, rcd.Id)
+		// 		}
+		// 	}
 	}
 }
 
@@ -155,7 +116,7 @@ func sendAll(mes []byte, mychan *chan []byte) {
 	smu.Lock()
 	for _, v := range clientsSend {
 		if v == mychan {
-			//			log.Printf("Not send myself %d", i)
+			//log.Printf("Not send myself %d", i)
 			continue
 		} else {
 			*v <- mes
@@ -221,9 +182,6 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 			}
 
 		} else if strings.HasPrefix(mes, "id:") {
-			// for first subscribe
-			//noSpace := strings.Replace(mes, " ", "", -1)
-			//id, err = strconv.Atoi(noSpace)
 			id, err = strconv.Atoi(mes[3:])
 			if err != nil {
 				log.Print(err, mes)
@@ -270,14 +228,14 @@ func main() {
 			log.Fatal("Can't register node...")
 		}
 		log.Printf("Connecting Server [%s]\n", srv)
-		sxServerAddress = srv
+		sx.SxServerAddress = srv
 		client := sxutil.GrpcConnectServer(srv)
 		argJSON1 := fmt.Sprintf("{Client:HMI_SERVICE_MQTT}")
 		mqttclient = sxutil.NewSXServiceClient(client, pbase.MQTT_GATEWAY_SVC, argJSON1)
 		argJSON2 := fmt.Sprintf("{Client:HMI_SERVICE_WAREHOUSE}")
 		warehouseclient = sxutil.NewSXServiceClient(client, pbase.WAREHOUSE_SVC, argJSON2)
 		log.Print("Start Subscribe")
-		go subscribeWarehouseSupply(warehouseclient)
+		go sx.SubscribeWarehouseSupply(warehouseclient, supplyWarehouseCallback)
 	}
 	wg.Add(1)
 
