@@ -1,6 +1,7 @@
 package picking
 
 import (
+	"flag"
 	"fmt"
 	"time"
 
@@ -8,7 +9,8 @@ import (
 )
 
 var (
-	Locmap map[string]Pos
+	Locmap       map[string]Pos
+	LocationFile = flag.String("locmap", "assets/location_list.csv", "location list csv file")
 )
 
 type Pos struct {
@@ -28,7 +30,7 @@ func NewBatchStatus() *BatchStatus {
 	bs := new(BatchStatus)
 	bs.BatchList = make([]*BatchInfo, 0)
 	bs.batchnum = 0
-	Locmap = getShelfMap("../assets/location_list.csv")
+	Locmap = getShelfMap(*LocationFile)
 	bs.idLast = 0
 	return bs
 }
