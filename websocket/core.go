@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	wsAddr = flag.String("wsaddr", "localhost:10090", "HMI-Service WebSocket Listening Port")
+	WsAddr = flag.String("wsaddr", "localhost:10090", "HMI-Service WebSocket Listening Port")
 )
 
 var rootTemplate = template.Must(template.New("").Parse(`
@@ -98,12 +98,12 @@ func home(w http.ResponseWriter, r *http.Request) {
 }
 
 func RunWebsocketServer(handler func(http.ResponseWriter, *http.Request)) {
-	log.Printf("Starting Websocket server on %s", *wsAddr)
+	log.Printf("Starting Websocket server on %s", *WsAddr)
 
 	http.HandleFunc("/", home)
 	http.HandleFunc("/w", handler)
 
-	err := http.ListenAndServe(*wsAddr, nil)
+	err := http.ListenAndServe(*WsAddr, nil)
 
 	log.Printf("Websocket listening Error!", err)
 }

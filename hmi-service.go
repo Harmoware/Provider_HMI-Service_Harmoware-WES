@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -28,35 +27,18 @@ var (
 	nosx     = flag.Bool("nosx", false, "Do not use synerex. standalone Websocket Service")
 	upgrader = websocket.Upgrader{} // use default options
 
-	mqttclient      *sxutil.SXServiceClient
+	//mqttclient      *sxutil.SXServiceClient
 	warehouseclient *sxutil.SXServiceClient
 
 	smu sync.Mutex // for websocket
 
 	clientsSend = make([]*chan []byte, 0)
-
-	clientMsg  = make(map[int64][]byte)
-	clientList = make(map[int64]*chan []byte) // id と websocket-clientの 1対1対応
+	clientList  = make(map[int64]*chan []byte) // id と websocket-clientの 1対1対応
 
 	userList = make(map[int64]*pick.WorkerInfo) // id と user
 
-	batchList = make([]*pick.BatchInfo, 0)
+	bs *pick.BatchStatus
 )
-
-//hololens message
-type pos2 struct {
-	X float32 `json:"x"`
-	Y float32 `json:"y"`
-}
-type humanStateJson struct {
-	Currenttask     string `json:"currenttask"`
-	Nextposition    string `json:"nextposition"`
-	Workingtime     string `json:"workingtime"`
-	Movedistance    string `json:"movedistance"`
-	Message         string `json:"message"`
-	Currentposition pos2   `json:"currentposition"`
-	Targetposition  pos2   `json:"targetposition"`
-}
 
 func supplyWarehouseCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 	if sp.SenderId == uint64(clt.ClientID) {
@@ -74,29 +56,7 @@ func supplyWarehouseCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 			log.Printf("fail to load order")
 		}
 		newB := pick.NewBatchInfo(rcd)
-		batchList = append(batchList, newB)
-
-		// case "WES_human_state_publish":
-		// 	rcd := &proto_wes.WesHumanState{}
-		// 	err := proto.Unmarshal(sp.Cdata.Entity, rcd)
-		// 	if err == nil {
-		// 		humanState := humanStateJson{
-		// 			Currenttask:     fmt.Sprintf("%d/%d", len(rcd.PickedItem)+1, rcd.WmsItemNum),
-		// 			Nextposition:    rcd.NextItem,
-		// 			Workingtime:     fmt.Sprintf("%dsec", rcd.ElapsedTime),
-		// 			Movedistance:    fmt.Sprintf("%fm", rcd.MoveDistance),
-		// 			Message:         rcd.Message,
-		// 			Currentposition: pos2{X: rcd.LatestPos.X, Y: rcd.LatestPos.Y},
-		// 			Targetposition:  pos2{X: rcd.TargetPos.X, Y: rcd.LatestPos.Y},
-		// 		}
-		// 		msg, jerr := json.Marshal(humanState)
-		// 		if jerr != nil {
-		// 			log.Print(jerr)
-		// 			break
-		// 		} else {
-		// 			sendOne(msg, rcd.Id)
-		// 		}
-		// 	}
+		bs.AddBatch(newB)
 	}
 }
 
@@ -149,6 +109,7 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 	clientsSend = append(clientsSend, &mychan)
 	smu.Unlock()
 	go handleSender(c, &mychan)
+	var user *pick.WorkerInfo
 
 	defer c.Close() // until closed
 	for {
@@ -160,21 +121,33 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 		mes := string(message)
 		log.Printf("Receive: %s", mes)
 
+		// repeat message
 		if strings.HasPrefix(mes, "echo:") {
 			err = c.WriteMessage(mt, message[5:])
 			if err != nil {
 				log.Println("Echo Error!:", err)
 				break
 			}
+			// chat with other clietns
 		} else if strings.HasPrefix(mes, "send:") {
 			// we need to send other clients!
 			log.Printf("Sending to others:%s ", mes[5:])
 			sendAll(message[5:], &mychan)
 
+			//picking command
 		} else if strings.HasPrefix(mes, "cmd:") {
-			//do actions
 			action := mes[4:]
-			if strings.HasPrefix(action, "status") {
+			if strings.HasPrefix(action, "start") {
+				newb := bs.AssignBatch()
+				if newb == nil {
+					err := c.WriteMessage(mt, []byte("no batch"))
+					if err != nil {
+						log.Println("Error during message writing:", err)
+						break
+					}
+				}
+
+			} else if strings.HasPrefix(action, "status") {
 				//send status
 
 			} else if strings.HasPrefix(action, "next") {
@@ -188,18 +161,25 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 			} else {
 				smu.Lock()
 				clientList[int64(id)] = &mychan
+				if _, ok := userList[int64(id)]; !ok {
+					userList[int64(id)] = pick.NewWorkerInfo(int64(id))
+				}
+				user = userList[int64(id)]
 				smu.Unlock()
+				user.Connect()
+
 			}
 		}
 	}
-	smu.Lock()
 
+	smu.Lock()
 	for i, v := range clientsSend {
 		if v == &mychan {
 			clientsSend = append(clientsSend[:i], clientsSend[i+1:]...)
 			close(mychan)
 			if id != -1 {
 				delete(clientList, int64(id))
+				userList[int64(id)].DisConnect()
 			}
 			log.Printf("Close channel %v", mychan)
 			break
@@ -230,13 +210,16 @@ func main() {
 		log.Printf("Connecting Server [%s]\n", srv)
 		sx.SxServerAddress = srv
 		client := sxutil.GrpcConnectServer(srv)
-		argJSON1 := fmt.Sprintf("{Client:HMI_SERVICE_MQTT}")
-		mqttclient = sxutil.NewSXServiceClient(client, pbase.MQTT_GATEWAY_SVC, argJSON1)
-		argJSON2 := fmt.Sprintf("{Client:HMI_SERVICE_WAREHOUSE}")
+		// argJSON1 := "{Client:HMI_SERVICE_MQTT}"
+		// mqttclient = sxutil.NewSXServiceClient(client, pbase.MQTT_GATEWAY_SVC, argJSON1)
+		argJSON2 := "{Client:HMI_SERVICE_WAREHOUSE}"
 		warehouseclient = sxutil.NewSXServiceClient(client, pbase.WAREHOUSE_SVC, argJSON2)
 		log.Print("Start Subscribe")
 		go sx.SubscribeWarehouseSupply(warehouseclient, supplyWarehouseCallback)
 	}
+
+	bs = pick.NewBatchStatus()
+
 	wg.Add(1)
 
 	wg.Wait()

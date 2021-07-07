@@ -11,6 +11,39 @@ type Pos struct {
 	Y float64
 }
 
+type BatchStatus struct {
+	batchList []*BatchInfo
+
+	batchnum int
+	frees    []int
+	progress []int
+	finishs  []int
+}
+
+func NewBatchStatus() *BatchStatus {
+	bs := new(BatchStatus)
+	bs.batchList = make([]*BatchInfo, 0)
+	bs.batchnum = 0
+	return bs
+}
+
+func (bs *BatchStatus) AddBatch(b *BatchInfo) {
+	bs.batchList = append(bs.batchList, b)
+	bs.batchnum++
+	bs.frees = append(bs.frees, bs.batchnum-1)
+}
+
+func (bs *BatchStatus) AssignBatch() *BatchInfo {
+	if len(bs.frees) == 0 {
+		return nil
+	}
+	// todo 何を割り振るか決める
+	id := bs.frees[0]
+	bs.frees = bs.frees[1:]
+	bs.progress = append(bs.progress, id)
+	return bs.batchList[id]
+}
+
 type BatchInfo struct {
 	ID           int64
 	WorkerID     int64
@@ -21,6 +54,18 @@ type BatchInfo struct {
 	ShipmentTime time.Time
 
 	itemIndex int
+}
+
+func NewBatchInfo(rcd *wes.WmsOrder) *BatchInfo {
+	b := new(BatchInfo)
+	b.ID = rcd.WmsID
+	b.WorkerID = -1
+	b.Floor = 2
+	b.ShipmentPos = Pos{X: 7.0, Y: 8.0}
+	b.Items = make([]*ItemInfo, 0)
+
+	b.itemIndex = 0
+	return b
 }
 
 type ItemInfo struct {
