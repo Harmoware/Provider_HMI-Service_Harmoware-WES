@@ -24,6 +24,7 @@ func NewWorkerInfo(id int64) *WorkerInfo {
 func (w *WorkerInfo) SetBatch(b *BatchInfo) {
 	w.WorkBatchID = b.ID
 	w.CurrentBatch = b
+	b.WorkerID = w.ID
 }
 
 func (w *WorkerInfo) Connect() {
@@ -39,7 +40,7 @@ func (w *WorkerInfo) NextItem() error {
 	if w.CurrentItem == nil {
 		return errors.New("not working now")
 	}
-	ne := w.CurrentItem.Next()
+	ne := w.CurrentBatch.Next()
 	if ne == nil {
 		return errors.New("no next item")
 	} else {

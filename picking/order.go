@@ -6,6 +6,10 @@ import (
 	wes "github.com/synerex/proto_wes"
 )
 
+var (
+	Locmap map[string]Pos
+)
+
 type Pos struct {
 	X float64
 	Y float64
@@ -17,13 +21,13 @@ type BatchStatus struct {
 	batchnum int
 	frees    []int
 	progress []int
-	finishs  []int
 }
 
 func NewBatchStatus() *BatchStatus {
 	bs := new(BatchStatus)
 	bs.batchList = make([]*BatchInfo, 0)
 	bs.batchnum = 0
+	Locmap = getShelfMap("../assets/location_list.csv")
 	return bs
 }
 
@@ -60,11 +64,15 @@ func NewBatchInfo(rcd *wes.WmsOrder) *BatchInfo {
 	b := new(BatchInfo)
 	b.ID = rcd.WmsID
 	b.WorkerID = -1
-	b.Floor = 2
+	b.Floor = 3
 	b.ShipmentPos = Pos{X: 7.0, Y: 8.0}
 	b.Items = make([]*ItemInfo, 0)
 
 	b.itemIndex = 0
+
+	for i, item := range rcd.Item {
+		b.Items = append(b.Items, NewItemInfo(item, int64(i), b))
+	}
 	return b
 }
 
@@ -81,20 +89,26 @@ type ItemInfo struct {
 	picked bool
 }
 
-func NewItemInfo(rev wes.Item) *ItemInfo {
+func NewItemInfo(rev *wes.Item, id int64, b *BatchInfo) *ItemInfo {
 	i := new(ItemInfo)
+	i.ID = id
 	i.picked = false
-
+	i.BatchID = b.ID
+	i.Batch = b
+	i.Pos = Locmap[rev.ShelfID]
+	i.Shelf = rev.ShelfID
 	return i
 }
 
 // next item
-func (current *ItemInfo) Next() *ItemInfo {
-	if current.Batch.itemIndex >= len(current.Batch.Items)-1 {
+func (current *BatchInfo) Next() *ItemInfo {
+	if current.itemIndex >= len(current.Items)-1 {
 		return nil
 	}
-	current.Batch.itemIndex++
-	return current.Batch.Items[current.Batch.itemIndex]
+	current.Items[current.itemIndex].picked = true
+	current.Items[current.itemIndex].PickTime = time.Now()
+	current.itemIndex++
+	return current.Items[current.itemIndex]
 }
 
 // todo
