@@ -1,6 +1,7 @@
 package picking
 
 import (
+	"fmt"
 	"time"
 
 	wes "github.com/synerex/proto_wes"
@@ -16,23 +17,24 @@ type Pos struct {
 }
 
 type BatchStatus struct {
-	batchList []*BatchInfo
-
-	batchnum int
-	frees    []int
-	progress []int
+	BatchList []*BatchInfo
+	batchnum  int
+	frees     []int
+	progress  []int
+	idLast    int
 }
 
 func NewBatchStatus() *BatchStatus {
 	bs := new(BatchStatus)
-	bs.batchList = make([]*BatchInfo, 0)
+	bs.BatchList = make([]*BatchInfo, 0)
 	bs.batchnum = 0
 	Locmap = getShelfMap("../assets/location_list.csv")
+	bs.idLast = 0
 	return bs
 }
 
 func (bs *BatchStatus) AddBatch(b *BatchInfo) {
-	bs.batchList = append(bs.batchList, b)
+	bs.BatchList = append(bs.BatchList, b)
 	bs.batchnum++
 	bs.frees = append(bs.frees, bs.batchnum-1)
 }
@@ -45,24 +47,25 @@ func (bs *BatchStatus) AssignBatch() *BatchInfo {
 	id := bs.frees[0]
 	bs.frees = bs.frees[1:]
 	bs.progress = append(bs.progress, id)
-	return bs.batchList[id]
+	return bs.BatchList[id]
 }
 
 type BatchInfo struct {
-	ID           int64       `json: "id"`
-	WorkerID     int64       `json: "worker_id"`
-	Floor        int         `json: "floor"`
-	ShipmentPos  Pos         `json: "ship_pos"`
-	Items        []*ItemInfo `json: "items"`
-	StartTime    time.Time   `json: "start_time"`
+	ID           int64       `json:"id"`
+	WorkerID     int64       `json:"worker_id"`
+	Floor        int         `json:"floor"`
+	ShipmentPos  Pos         `json:"ship_pos"`
+	Items        []*ItemInfo `json:"items"`
+	StartTime    time.Time   `json:"start_time"`
 	ShipmentTime time.Time
 
 	itemIndex int
 }
 
-func NewBatchInfo(rcd *wes.WmsOrder) *BatchInfo {
+func (bs *BatchStatus) NewBatchInfo(rcd *wes.WmsOrder) *BatchInfo {
 	b := new(BatchInfo)
-	b.ID = rcd.WmsID
+	bs.idLast++
+	b.ID = int64(bs.idLast) + 100*rcd.WmsID
 	b.WorkerID = -1
 	b.Floor = 3
 	b.ShipmentPos = Pos{X: 7.0, Y: 8.0}
@@ -71,7 +74,8 @@ func NewBatchInfo(rcd *wes.WmsOrder) *BatchInfo {
 	b.itemIndex = 0
 
 	for i, item := range rcd.Item {
-		b.Items = append(b.Items, NewItemInfo(item, int64(i), b))
+		name := fmt.Sprintf("test_order%d_%d", b.ID, i)
+		b.Items = append(b.Items, NewItemInfo(item, int64(i), name, b))
 	}
 	return b
 }
@@ -89,11 +93,12 @@ type ItemInfo struct {
 	picked bool
 }
 
-func NewItemInfo(rev *wes.Item, id int64, b *BatchInfo) *ItemInfo {
+func NewItemInfo(rev *wes.Item, id int64, name string, b *BatchInfo) *ItemInfo {
 	i := new(ItemInfo)
 	i.ID = id
 	i.picked = false
 	i.BatchID = b.ID
+	i.Name = name
 	i.Batch = b
 	i.Pos = Locmap[rev.ShelfID]
 	i.Shelf = rev.ShelfID

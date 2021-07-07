@@ -55,7 +55,7 @@ func supplyWarehouseCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 		if err == nil {
 			log.Printf("fail to load order")
 		}
-		newB := pick.NewBatchInfo(rcd)
+		newB := bs.NewBatchInfo(rcd)
 		bs.AddBatch(newB)
 	}
 }
@@ -84,15 +84,6 @@ func sendAll(mes []byte, mychan *chan []byte) {
 	}
 	smu.Unlock()
 }
-
-// func sendOne(mes []byte, id int64) {
-// 	smu.Lock()
-// 	defer smu.Unlock()
-// 	if client, ok := clientList[id]; ok {
-// 		*client <- mes
-// 		log.Printf("Sending to %d:%s ", id, mes)
-// 	}
-// }
 
 func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 	c, err := upgrader.Upgrade(w, r, nil)
