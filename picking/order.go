@@ -45,12 +45,12 @@ func (bs *BatchStatus) AssignBatch() *BatchInfo {
 }
 
 type BatchInfo struct {
-	ID           int64
-	WorkerID     int64
-	Floor        int
-	ShipmentPos  Pos
-	Items        []*ItemInfo
-	StartTime    time.Time
+	ID           int64       `json: "id"`
+	WorkerID     int64       `json: "worker_id"`
+	Floor        int         `json: "floor"`
+	ShipmentPos  Pos         `json: "ship_pos"`
+	Items        []*ItemInfo `json: "items"`
+	StartTime    time.Time   `json: "start_time"`
 	ShipmentTime time.Time
 
 	itemIndex int
@@ -90,14 +90,14 @@ func NewItemInfo(rev wes.Item) *ItemInfo {
 
 // next item
 func (current *ItemInfo) Next() *ItemInfo {
-	if current.Batch.itemIndex >= len(current.Batch.Items) {
+	if current.Batch.itemIndex >= len(current.Batch.Items)-1 {
 		return nil
 	}
 	current.Batch.itemIndex++
 	return current.Batch.Items[current.Batch.itemIndex]
 }
 
-// furture work
+// todo
 func (b *BatchInfo) SortItems() {
 
 }

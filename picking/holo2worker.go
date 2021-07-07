@@ -1,6 +1,9 @@
 package picking
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 type WorkerInfo struct {
 	ID           int64
@@ -25,8 +28,22 @@ func (w *WorkerInfo) SetBatch(b *BatchInfo) {
 
 func (w *WorkerInfo) Connect() {
 	w.connection = true
+	w.lastConnectionTime = time.Now()
 }
 
 func (w *WorkerInfo) DisConnect() {
 	w.connection = false
+}
+
+func (w *WorkerInfo) NextItem() error {
+	if w.CurrentItem == nil {
+		return errors.New("not working now")
+	}
+	ne := w.CurrentItem.Next()
+	if ne == nil {
+		return errors.New("no next item")
+	} else {
+		w.CurrentItem = ne
+	}
+	return nil
 }

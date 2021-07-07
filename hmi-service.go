@@ -85,14 +85,14 @@ func sendAll(mes []byte, mychan *chan []byte) {
 	smu.Unlock()
 }
 
-func sendOne(mes []byte, id int64) {
-	smu.Lock()
-	defer smu.Unlock()
-	if client, ok := clientList[id]; ok {
-		*client <- mes
-		log.Printf("Sending to %d:%s ", id, mes)
-	}
-}
+// func sendOne(mes []byte, id int64) {
+// 	smu.Lock()
+// 	defer smu.Unlock()
+// 	if client, ok := clientList[id]; ok {
+// 		*client <- mes
+// 		log.Printf("Sending to %d:%s ", id, mes)
+// 	}
+// }
 
 func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 	c, err := upgrader.Upgrade(w, r, nil)
@@ -128,16 +128,17 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 				log.Println("Echo Error!:", err)
 				break
 			}
-			// chat with other clietns
+
 		} else if strings.HasPrefix(mes, "send:") {
-			// we need to send other clients!
+			// chat with other clietns
 			log.Printf("Sending to others:%s ", mes[5:])
 			sendAll(message[5:], &mychan)
 
-			//picking command
 		} else if strings.HasPrefix(mes, "cmd:") {
+			//picking command
 			action := mes[4:]
 			if strings.HasPrefix(action, "start") {
+				//start new batch
 				newb := bs.AssignBatch()
 				if newb == nil {
 					err := c.WriteMessage(mt, []byte("no batch"))
@@ -148,10 +149,28 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 				}
 
 			} else if strings.HasPrefix(action, "status") {
-				//send status
+				// send status
 
 			} else if strings.HasPrefix(action, "next") {
+				// next item
+				er := user.NextItem()
+				if er != nil {
+					err := c.WriteMessage(mt, []byte(er.Error()))
+					if err != nil {
+						log.Println("Error during message writing:", err)
+						break
+					}
+				}
 
+			} else if strings.HasPrefix(action, "robot") {
+				// to do send robot information
+
+			} else {
+				err := c.WriteMessage(mt, []byte("unknown action"))
+				if err != nil {
+					log.Println("Error during message writing:", err)
+					break
+				}
 			}
 
 		} else if strings.HasPrefix(mes, "id:") {
@@ -172,6 +191,7 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// disconnect
 	smu.Lock()
 	for i, v := range clientsSend {
 		if v == &mychan {
