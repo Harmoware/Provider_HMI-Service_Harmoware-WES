@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 
@@ -17,15 +18,17 @@ import (
 	pbase "github.com/synerex/synerex_proto"
 	sxutil "github.com/synerex/synerex_sxutil"
 
+	"github.com/Harmoware/Provider_HMI-Service_Harmoware-WES/logging"
 	pick "github.com/Harmoware/Provider_HMI-Service_Harmoware-WES/picking"
 	sx "github.com/Harmoware/Provider_HMI-Service_Harmoware-WES/synerex"
 	ws "github.com/Harmoware/Provider_HMI-Service_Harmoware-WES/websocket"
 )
 
 var (
-	nodesrv = flag.String("nodesrv", "127.0.0.1:9990", "Node ID Server")
-
+	nodesrv  = flag.String("nodesrv", "127.0.0.1:9990", "Node ID Server")
 	nosx     = flag.Bool("nosx", false, "Do not use synerex. standalone Websocket Service")
+	loggingf = flag.Bool("log", false, "logging in log/datefile")
+
 	upgrader = websocket.Upgrader{} // use default options
 
 	smu sync.Mutex // for websocket
@@ -241,6 +244,12 @@ func main() {
 	wg := sync.WaitGroup{}                    // for syncing other goroutines
 
 	bs = pick.NewBatchStatus()
+
+	//logging configuration
+	if *loggingf {
+		now := time.Now()
+		logging.LoggingSettings("log/" + now.Format("2006-01-02") + "/" + now.Format("2006-01-02-15") + ".log")
+	}
 
 	if *nosx {
 		bs.ReadOrder("assets/wms_order_demo.csv")
