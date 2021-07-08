@@ -190,6 +190,11 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 
 			} else if strings.HasPrefix(action, "robot") {
 				// to do send robot information
+				err := c.WriteMessage(mt, []byte("test_robot0:00,00"))
+				if err != nil {
+					log.Println("Error during message writing:", err)
+					continue
+				}
 
 			} else {
 				err := c.WriteMessage(mt, []byte("unknown action"))
