@@ -52,6 +52,15 @@ func (bs *BatchStatus) AssignBatch() *BatchInfo {
 	return bs.BatchList[id]
 }
 
+func (bs *BatchStatus) ReadOrder(fname string) {
+	orders := ReadWmsCsv(fname)
+
+	for _, rcd := range orders {
+		newB := bs.NewBatchInfo(rcd)
+		bs.AddBatch(newB)
+	}
+}
+
 type BatchInfo struct {
 	ID           int64       `json:"id"`
 	WorkerID     int64       `json:"worker_id"`

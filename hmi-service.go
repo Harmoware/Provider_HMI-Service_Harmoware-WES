@@ -208,8 +208,10 @@ func main() {
 	go ws.RunWebsocketServer(handleWebsocket) // start web socket server
 	wg := sync.WaitGroup{}                    // for syncing other goroutines
 
-	if *nosx {
+	bs = pick.NewBatchStatus()
 
+	if *nosx {
+		bs.ReadOrder("assets/wms_order_demo.csv")
 	} else {
 		sxutil.RegisterDeferFunction(sxutil.UnRegisterNode)
 		channelTypes := []uint32{pbase.WAREHOUSE_SVC, pbase.MQTT_GATEWAY_SVC}
@@ -228,8 +230,6 @@ func main() {
 		log.Print("Start Subscribe")
 		go sx.SubscribeWarehouseSupply(warehouseclient, supplyWarehouseCallback)
 	}
-
-	bs = pick.NewBatchStatus()
 
 	wg.Add(1)
 
