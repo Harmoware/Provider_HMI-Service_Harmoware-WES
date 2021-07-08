@@ -13,6 +13,8 @@ import (
 var (
 	SxServerAddress string
 	Mu              sync.Mutex
+	Mqttclient      *sxutil.SXServiceClient
+	Warehouseclient *sxutil.SXServiceClient
 )
 
 func ReconnectClient(client *sxutil.SXServiceClient) {

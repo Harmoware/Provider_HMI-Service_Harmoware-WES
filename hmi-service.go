@@ -28,9 +28,6 @@ var (
 	nosx     = flag.Bool("nosx", false, "Do not use synerex. standalone Websocket Service")
 	upgrader = websocket.Upgrader{} // use default options
 
-	//mqttclient      *sxutil.SXServiceClient
-	warehouseclient *sxutil.SXServiceClient
-
 	smu sync.Mutex // for websocket
 
 	clientsSend = make([]*chan []byte, 0)
@@ -58,6 +55,7 @@ func supplyWarehouseCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 		}
 		newB := bs.NewBatchInfo(rcd)
 		bs.AddBatch(newB)
+		log.Print("add new batch")
 	}
 }
 
@@ -140,6 +138,7 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 				user.SetBatch(newb)
+				sx.SendMQTTGomessage(id, user.CurrentItem.Pos.X, user.CurrentItem.Pos.Y)
 				out, e := json.Marshal(user.CurrentItem)
 				if e != nil {
 					log.Println(e)
@@ -174,6 +173,7 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 				}
+				sx.SendMQTTGomessage(id, user.CurrentItem.Pos.X, user.CurrentItem.Pos.Y)
 				out, e := json.Marshal(next)
 				if e != nil {
 					log.Println(e)
@@ -255,12 +255,12 @@ func main() {
 		log.Printf("Connecting Server [%s]\n", srv)
 		sx.SxServerAddress = srv
 		client := sxutil.GrpcConnectServer(srv)
-		// argJSON1 := "{Client:HMI_SERVICE_MQTT}"
-		// mqttclient = sxutil.NewSXServiceClient(client, pbase.MQTT_GATEWAY_SVC, argJSON1)
+		argJSON1 := "{Client:HMI_SERVICE_MQTT}"
+		sx.Mqttclient = sxutil.NewSXServiceClient(client, pbase.MQTT_GATEWAY_SVC, argJSON1)
 		argJSON2 := "{Client:HMI_SERVICE_WAREHOUSE}"
-		warehouseclient = sxutil.NewSXServiceClient(client, pbase.WAREHOUSE_SVC, argJSON2)
+		sx.Warehouseclient = sxutil.NewSXServiceClient(client, pbase.WAREHOUSE_SVC, argJSON2)
 		log.Print("Start Subscribe")
-		go sx.SubscribeWarehouseSupply(warehouseclient, supplyWarehouseCallback)
+		go sx.SubscribeWarehouseSupply(sx.Warehouseclient, supplyWarehouseCallback)
 	}
 
 	wg.Add(1)
