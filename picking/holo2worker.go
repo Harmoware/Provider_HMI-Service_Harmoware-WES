@@ -25,6 +25,8 @@ func (w *WorkerInfo) SetBatch(b *BatchInfo) {
 	w.WorkBatchID = b.ID
 	w.CurrentBatch = b
 	b.WorkerID = w.ID
+
+	w.CurrentItem = w.CurrentBatch.Items[w.CurrentBatch.itemIndex]
 }
 
 func (w *WorkerInfo) Connect() {
@@ -36,15 +38,15 @@ func (w *WorkerInfo) DisConnect() {
 	w.connection = false
 }
 
-func (w *WorkerInfo) NextItem() error {
+func (w *WorkerInfo) NextItem() (*ItemInfo, error) {
 	if w.CurrentItem == nil {
-		return errors.New("not working now")
+		return nil, errors.New("not working now")
 	}
 	ne := w.CurrentBatch.Next()
 	if ne == nil {
-		return errors.New("no next item")
+		return nil, errors.New("no next item")
 	} else {
 		w.CurrentItem = ne
 	}
-	return nil
+	return ne, nil
 }

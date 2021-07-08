@@ -61,18 +61,6 @@ func (bs *BatchStatus) ReadOrder(fname string) {
 	}
 }
 
-type BatchInfo struct {
-	ID           int64       `json:"id"`
-	WorkerID     int64       `json:"worker_id"`
-	Floor        int         `json:"floor"`
-	ShipmentPos  Pos         `json:"ship_pos"`
-	Items        []*ItemInfo `json:"items"`
-	StartTime    time.Time   `json:"start_time"`
-	ShipmentTime time.Time
-
-	itemIndex int
-}
-
 func (bs *BatchStatus) NewBatchInfo(rcd *wes.WmsOrder) *BatchInfo {
 	b := new(BatchInfo)
 	bs.idLast++
@@ -88,32 +76,20 @@ func (bs *BatchStatus) NewBatchInfo(rcd *wes.WmsOrder) *BatchInfo {
 		name := fmt.Sprintf("test_order%d_%d", b.ID, i)
 		b.Items = append(b.Items, NewItemInfo(item, int64(i), name, b))
 	}
+	b.SortItems()
 	return b
 }
 
-type ItemInfo struct {
-	Name      string
-	Pos       Pos
-	Shelf     string
-	ID        int64
-	BatchID   int64
-	Batch     *BatchInfo
-	StartTime time.Time
-	PickTime  time.Time
+type BatchInfo struct {
+	ID           int64       `json:"id"`
+	WorkerID     int64       `json:"worker_id"`
+	Floor        int         `json:"floor"`
+	ShipmentPos  Pos         `json:"ship_pos"`
+	Items        []*ItemInfo `json:"items"`
+	StartTime    time.Time   `json:"start_time"`
+	ShipmentTime time.Time
 
-	picked bool
-}
-
-func NewItemInfo(rev *wes.Item, id int64, name string, b *BatchInfo) *ItemInfo {
-	i := new(ItemInfo)
-	i.ID = id
-	i.picked = false
-	i.BatchID = b.ID
-	i.Name = name
-	i.Batch = b
-	i.Pos = Locmap[rev.ShelfID]
-	i.Shelf = rev.ShelfID
-	return i
+	itemIndex int
 }
 
 // next item
@@ -130,4 +106,29 @@ func (current *BatchInfo) Next() *ItemInfo {
 // todo
 func (b *BatchInfo) SortItems() {
 
+}
+
+type ItemInfo struct {
+	Name      string    `json:"name"`
+	Pos       Pos       `json:"position"`
+	Shelf     string    `json:"shelf"`
+	ID        int64     `json:"id"`
+	BatchID   int64     `json:"batch_id"`
+	StartTime time.Time `json:"start_time"`
+	PickTime  time.Time
+
+	batch  *BatchInfo
+	picked bool
+}
+
+func NewItemInfo(rev *wes.Item, id int64, name string, b *BatchInfo) *ItemInfo {
+	i := new(ItemInfo)
+	i.ID = id
+	i.picked = false
+	i.BatchID = b.ID
+	i.Name = name
+	i.batch = b
+	i.Pos = Locmap[rev.ShelfID]
+	i.Shelf = rev.ShelfID
+	return i
 }

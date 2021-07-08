@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"log"
 	"net/http"
@@ -135,22 +136,53 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 					err := c.WriteMessage(mt, []byte("no batch"))
 					if err != nil {
 						log.Println("Error during message writing:", err)
-						break
+						continue
 					}
+				}
+				user.SetBatch(newb)
+				out, e := json.Marshal(user.CurrentItem)
+				if e != nil {
+					log.Println(e)
+					continue
+				}
+				err := c.WriteMessage(mt, out)
+				if err != nil {
+					log.Println("Error during message writing:", err)
+					continue
 				}
 
 			} else if strings.HasPrefix(action, "status") {
 				// send status
+				out, e := json.Marshal(user.CurrentBatch)
+				if e != nil {
+					log.Println(e)
+					continue
+				}
+				err := c.WriteMessage(mt, out)
+				if err != nil {
+					log.Println("Error during message writing:", err)
+					continue
+				}
 
 			} else if strings.HasPrefix(action, "next") {
 				// next item
-				er := user.NextItem()
+				next, er := user.NextItem()
 				if er != nil {
 					err := c.WriteMessage(mt, []byte(er.Error()))
 					if err != nil {
 						log.Println("Error during message writing:", err)
-						break
+						continue
 					}
+				}
+				out, e := json.Marshal(next)
+				if e != nil {
+					log.Println(e)
+					continue
+				}
+				err := c.WriteMessage(mt, out)
+				if err != nil {
+					log.Println("Error during message writing:", err)
+					continue
 				}
 
 			} else if strings.HasPrefix(action, "robot") {
@@ -160,7 +192,7 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 				err := c.WriteMessage(mt, []byte("unknown action"))
 				if err != nil {
 					log.Println("Error during message writing:", err)
-					break
+					continue
 				}
 			}
 
