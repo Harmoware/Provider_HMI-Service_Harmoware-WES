@@ -54,7 +54,7 @@ func supplyWarehouseCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 		rcd := &proto_wes.WmsOrder{}
 		err := proto.Unmarshal(sp.Cdata.Entity, rcd)
 		if err == nil {
-			log.Printf("fail to load order")
+			log.Printf("proto: fail to unmarshal order")
 		}
 		newB := bs.NewBatchInfo(rcd)
 		bs.AddBatch(newB)
