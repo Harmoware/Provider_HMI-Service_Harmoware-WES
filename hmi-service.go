@@ -141,7 +141,9 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 				user.SetBatch(newb)
-				sx.SendMQTTGomessage(id, user.CurrentItem.Pos.X, user.CurrentItem.Pos.Y)
+				if !*nosx {
+					sx.SendMQTTGomessage(id, user.CurrentItem.Pos.X, user.CurrentItem.Pos.Y)
+				}
 				out, e := json.Marshal(user.CurrentItem)
 				if e != nil {
 					log.Println(e)
@@ -176,7 +178,9 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 						continue
 					}
 				}
-				sx.SendMQTTGomessage(id, user.CurrentItem.Pos.X, user.CurrentItem.Pos.Y)
+				if !*nosx {
+					sx.SendMQTTGomessage(id, user.CurrentItem.Pos.X, user.CurrentItem.Pos.Y)
+				}
 				out, e := json.Marshal(next)
 				if e != nil {
 					log.Println(e)
