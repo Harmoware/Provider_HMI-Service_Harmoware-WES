@@ -106,14 +106,14 @@ type BatchInfo struct {
 }
 
 // next item
-func (current *BatchInfo) Next() *ItemInfo {
+func (current *BatchInfo) Next() (ni *ItemInfo, ship bool) {
 	if current.itemIndex >= len(current.Items)-1 {
-		return nil
+		return current.Items[len(current.Items)-1], true
 	}
 	current.Items[current.itemIndex].picked = true
 	current.Items[current.itemIndex].PickTime = time.Now()
 	current.itemIndex++
-	return current.Items[current.itemIndex]
+	return current.Items[current.itemIndex], false
 }
 
 // todo

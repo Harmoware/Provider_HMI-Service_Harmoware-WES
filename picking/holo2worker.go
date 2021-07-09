@@ -54,9 +54,15 @@ func (w *WorkerInfo) NextItem() (*ItemInfo, error) {
 	if w.CurrentItem == nil {
 		return nil, errors.New("worker: not working any batch")
 	}
-	ne := w.CurrentBatch.Next()
-	if ne == nil {
-		return nil, errors.New("worker: no next item")
+	ne, last := w.CurrentBatch.Next()
+	if last {
+		ship := new(ItemInfo)
+		ship.BatchID = ne.BatchID
+		ship.ID = -1
+		ship.Name = "shipA"
+		ship.Pos = w.CurrentBatch.ShipmentPos
+		ship.Shelf = "---"
+		return ship, nil
 	} else {
 		w.CurrentItem = ne
 	}
