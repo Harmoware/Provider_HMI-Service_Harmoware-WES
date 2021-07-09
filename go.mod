@@ -3,8 +3,10 @@ module github.com/Harmoware/Provider_HMI-Service_Harmoware-WES
 go 1.14
 
 require (
+	github.com/fukurin00/astar_golang v0.0.0-20210709071552-96d1c9a34211
 	github.com/golang/protobuf v1.5.2
 	github.com/gorilla/websocket v1.4.2
+	github.com/jbuchbinder/gopnm v0.0.0-20150223212718-5176c556b9ce
 	github.com/shirou/gopsutil v2.20.8+incompatible // indirect
 	github.com/shirou/gopsutil/v3 v3.21.6 // indirect
 	github.com/synerex/proto_mqtt v0.1.2

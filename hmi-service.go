@@ -87,6 +87,15 @@ func sendAll(mes []byte, mychan *chan []byte) {
 	smu.Unlock()
 }
 
+func sendWebSocketMsg(c *websocket.Conn, mt int, msg []byte) error {
+	err := c.WriteMessage(mt, []byte(msg))
+	if err != nil {
+		log.Println("Error during message writing:", err)
+		return err
+	}
+	return nil
+}
+
 func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -116,10 +125,9 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 
 		// repeat message
 		if strings.HasPrefix(mes, "echo:") {
-			err = c.WriteMessage(mt, message[5:])
+			err := sendWebSocketMsg(c, mt, message[5:])
 			if err != nil {
-				log.Println("Echo Error!:", err)
-				break
+				continue
 			}
 
 		} else if strings.HasPrefix(mes, "send:") {
@@ -128,25 +136,23 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 			sendAll(message[5:], &mychan)
 
 		} else if strings.HasPrefix(mes, "cmd:") {
+			if user == nil {
+				sendWebSocketMsg(c, mt, []byte("please set id before command"))
+				continue
+			}
 			//picking command
 			action := mes[4:]
 			if strings.HasPrefix(action, "start") {
 				//start new batch
 				ok := user.OKBatch()
 				if ok != nil {
-					err := c.WriteMessage(mt, []byte(ok.Error()))
-					if err != nil {
-						log.Println("Error during message writing:", err)
-						continue
-					}
+					sendWebSocketMsg(c, mt, []byte(ok.Error()))
+					continue
 				}
-				newb := bs.AssignBatch()
-				if newb == nil {
-					err := c.WriteMessage(mt, []byte("no batch"))
-					if err != nil {
-						log.Println("Error during message writing:", err)
-						continue
-					}
+				newb, err := bs.AssignBatch()
+				if err != nil {
+					sendWebSocketMsg(c, mt, []byte(err.Error()))
+					continue
 				}
 				user.SetBatch(newb)
 				if !*nosx {
@@ -157,7 +163,7 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 					log.Println(e)
 					continue
 				}
-				err := c.WriteMessage(mt, out)
+				err = c.WriteMessage(mt, out)
 				if err != nil {
 					log.Println("Error during message writing:", err)
 					continue
@@ -213,6 +219,42 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 					log.Println("Error during message writing:", err)
 					continue
 				}
+
+				// } else if strings.HasPrefix(action, "route") {
+				// 	var x, y float64
+				// 	_, err := fmt.Sscanf(action, "route %f,%f", &x, &y)
+				// 	if err != nil {
+				// 		err := c.WriteMessage(mt, []byte("format error: cmd:route <x>,<y>"))
+				// 		if err != nil {
+				// 			log.Println("Error during message writing:", err)
+				// 			continue
+				// 		}
+				// 	}
+				// 	if user.CurrentItem == nil {
+				// 		err := c.WriteMessage(mt, []byte("routing: you are not working yet"))
+				// 		if err != nil {
+				// 			log.Println("Error during message writing:", err)
+				// 			continue
+				// 		}
+				// 	}
+				// 	w, err := pick.GetPath(x, y, user.CurrentItem)
+				// 	if err != nil {
+				// 		err := c.WriteMessage(mt, []byte(err.Error()))
+				// 		if err != nil {
+				// 			log.Println("Error during message writing:", err)
+				// 			continue
+				// 		}
+				// 	}
+				// 	out, e := json.Marshal(w)
+				// 	if e != nil {
+				// 		log.Println(e)
+				// 		continue
+				// 	}
+				// 	err = c.WriteMessage(mt, out)
+				// 	if err != nil {
+				// 		log.Println("Error during message writing:", err)
+				// 		continue
+				// 	}
 
 			} else if strings.HasPrefix(action, "robot") {
 				// to do send robot information
@@ -271,8 +313,7 @@ func main() {
 	flag.Parse()
 	go sxutil.HandleSigInt() //exit by Ctrl + C
 
-	go ws.RunWebsocketServer(handleWebsocket) // start web socket server
-	wg := sync.WaitGroup{}                    // for syncing other goroutines
+	wg := sync.WaitGroup{} // for syncing other goroutines
 
 	bs = pick.NewBatchStatus()
 
@@ -302,6 +343,7 @@ func main() {
 		log.Print("Start Subscribe")
 		go sx.SubscribeWarehouseSupply(sx.Warehouseclient, supplyWarehouseCallback)
 	}
+	go ws.RunWebsocketServer(handleWebsocket) // start web socket server
 
 	wg.Add(1)
 

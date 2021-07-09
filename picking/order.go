@@ -1,6 +1,7 @@
 package picking
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"time"
@@ -11,6 +12,7 @@ import (
 var (
 	Locmap       map[string]Pos
 	LocationFile = flag.String("locmap", "assets/location_list.csv", "location list csv file")
+	MapFile      = flag.String("map", "assets/map.pgm", "map file for routing")
 )
 
 type Pos struct {
@@ -29,9 +31,18 @@ type BatchStatus struct {
 func NewBatchStatus() *BatchStatus {
 	bs := new(BatchStatus)
 	bs.BatchList = make([]*BatchInfo, 0)
+	bs.frees = make([]int, 0)
+	bs.progress = make([]int, 0)
 	bs.batchnum = 0
 	Locmap = getShelfMap(*LocationFile)
 	bs.idLast = 0
+
+	// log.Print("loading mapfile ", *MapFile, " ...")
+	// err := SetupRouting(*MapFile)
+	// log.Print("load mapfile")
+	// if err != nil {
+	// 	log.Print("batchStatus: ", err)
+	// }
 	return bs
 }
 
@@ -41,15 +52,17 @@ func (bs *BatchStatus) AddBatch(b *BatchInfo) {
 	bs.frees = append(bs.frees, bs.batchnum-1)
 }
 
-func (bs *BatchStatus) AssignBatch() *BatchInfo {
+func (bs *BatchStatus) AssignBatch() (*BatchInfo, error) {
 	if len(bs.frees) == 0 {
-		return nil
+		return nil, errors.New("start: no batch")
 	}
 	// todo 何を割り振るか決める
 	id := bs.frees[0]
-	bs.frees = bs.frees[1:]
+	if len(bs.frees) >= 1 {
+		bs.frees = bs.frees[1:]
+	}
 	bs.progress = append(bs.progress, id)
-	return bs.BatchList[id]
+	return bs.BatchList[id], nil
 }
 
 func (bs *BatchStatus) ReadOrder(fname string) {
