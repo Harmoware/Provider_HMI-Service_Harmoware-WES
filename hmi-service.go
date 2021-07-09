@@ -191,6 +191,20 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 					log.Println("Error during message writing:", err)
 					continue
 				}
+			} else if strings.HasPrefix(action, "finish") {
+				er := user.FinishBatch()
+				if er != nil {
+					err := c.WriteMessage(mt, []byte(er.Error()))
+					if err != nil {
+						log.Println("Error during message writing:", err)
+						continue
+					}
+				}
+				err := c.WriteMessage(mt, []byte("finish"))
+				if err != nil {
+					log.Println("Error during message writing:", err)
+					continue
+				}
 
 			} else if strings.HasPrefix(action, "robot") {
 				// to do send robot information

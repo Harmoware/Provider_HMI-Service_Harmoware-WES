@@ -40,13 +40,25 @@ func (w *WorkerInfo) DisConnect() {
 
 func (w *WorkerInfo) NextItem() (*ItemInfo, error) {
 	if w.CurrentItem == nil {
-		return nil, errors.New("not working now")
+		return nil, errors.New("worker: not working any batch")
 	}
 	ne := w.CurrentBatch.Next()
 	if ne == nil {
-		return nil, errors.New("no next item")
+		return nil, errors.New("worker: no next item")
 	} else {
 		w.CurrentItem = ne
 	}
 	return ne, nil
+}
+
+func (w *WorkerInfo) FinishBatch() error {
+	if w.CurrentBatch == nil {
+		return errors.New("worker: not working any batch")
+	}
+	if w.CurrentBatch.itemIndex < len(w.CurrentBatch.Items) {
+		return errors.New("worker: please pick all item in your batch")
+	}
+	w.CurrentBatch = nil
+	w.CurrentItem = nil
+	return nil
 }

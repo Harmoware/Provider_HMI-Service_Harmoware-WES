@@ -16,8 +16,10 @@ websocket接続後に以下のコマンドを送信できる
 - `id:<id>`: userのidを設定 (最初に送る必要がある)
 - `cmd:start`: 新しいバッチを開始する
 - `cmd:next`: 次のアイテムに以降
-- `cmd:robot`: ロボットの位置を受信(実装中)
+- `cmd:finish`: バッチ作業終了
 - `cmd:status`: バッチの状況を受信する
+- `cmd:robot`: ロボットの位置を受信(実装中)
+- `cmd:call <x> <y>`: (x,y)の地点にロボットを呼ぶ（実装中）
 
 - `send:<message>`: 他のwebsocketクライアントに`<message>`を送信する
 - `echo:<message>`: `<message>`をechoする
@@ -33,3 +35,8 @@ trusco_field以外は`https://github.com/fukurin00/HMI-Services.git`のsubmodule
 6. websocketで接続
 7. `id`コマンドでユーザidを指定
 8. `cmd:start`でバッチ作業開始
+9. `cmd:next`で次のアイテムに以降
+10. `cmd:finish`でバッチの出荷完了
+
+# メッセージ形式(JSON)
+
