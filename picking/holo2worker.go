@@ -21,12 +21,24 @@ func NewWorkerInfo(id int64) *WorkerInfo {
 	return w
 }
 
+func (w *WorkerInfo) OKBatch() error {
+	if w.CurrentBatch == nil {
+		return nil
+	}
+
+	if w.CurrentBatch.itemIndex < len(w.CurrentBatch.Items) {
+		return errors.New("worker: please pick all item in your batch")
+	}
+	return nil
+}
+
 func (w *WorkerInfo) SetBatch(b *BatchInfo) {
 	w.WorkBatchID = b.ID
 	w.CurrentBatch = b
 	b.WorkerID = w.ID
 
 	w.CurrentItem = w.CurrentBatch.Items[w.CurrentBatch.itemIndex]
+	w.CurrentBatch.StartTime = time.Now()
 }
 
 func (w *WorkerInfo) Connect() {
@@ -60,5 +72,6 @@ func (w *WorkerInfo) FinishBatch() error {
 	}
 	w.CurrentBatch = nil
 	w.CurrentItem = nil
+	w.CurrentBatch.Finish()
 	return nil
 }

@@ -132,6 +132,14 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 			action := mes[4:]
 			if strings.HasPrefix(action, "start") {
 				//start new batch
+				ok := user.OKBatch()
+				if ok != nil {
+					err := c.WriteMessage(mt, []byte(ok.Error()))
+					if err != nil {
+						log.Println("Error during message writing:", err)
+						continue
+					}
+				}
 				newb := bs.AssignBatch()
 				if newb == nil {
 					err := c.WriteMessage(mt, []byte("no batch"))

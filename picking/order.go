@@ -14,8 +14,8 @@ var (
 )
 
 type Pos struct {
-	X float64
-	Y float64
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
 }
 
 type BatchStatus struct {
@@ -81,15 +81,15 @@ func (bs *BatchStatus) NewBatchInfo(rcd *wes.WmsOrder) *BatchInfo {
 }
 
 type BatchInfo struct {
-	ID           int64       `json:"id"`
-	WorkerID     int64       `json:"worker_id"`
-	Floor        int         `json:"floor"`
-	ShipmentPos  Pos         `json:"ship_pos"`
-	Items        []*ItemInfo `json:"items"`
-	StartTime    time.Time   `json:"start_time"`
-	ShipmentTime time.Time
+	ID          int64       `json:"id"`
+	WorkerID    int64       `json:"worker_id"`
+	Floor       int         `json:"floor"`
+	ShipmentPos Pos         `json:"ship_pos"`
+	Items       []*ItemInfo `json:"items"`
+	StartTime   time.Time   `json:"start_time"`
 
-	itemIndex int
+	shipmentTime time.Time
+	itemIndex    int
 }
 
 // next item
@@ -108,14 +108,17 @@ func (b *BatchInfo) SortItems() {
 
 }
 
+func (b *BatchInfo) Finish() {
+	b.shipmentTime = time.Now()
+}
+
 type ItemInfo struct {
-	Name      string    `json:"name"`
-	Pos       Pos       `json:"position"`
-	Shelf     string    `json:"shelf"`
-	ID        int64     `json:"id"`
-	BatchID   int64     `json:"batch_id"`
-	StartTime time.Time `json:"start_time"`
-	PickTime  time.Time
+	Name     string    `json:"name"`
+	Pos      Pos       `json:"position"`
+	Shelf    string    `json:"shelf"`
+	ID       int64     `json:"id"`
+	BatchID  int64     `json:"batch_id"`
+	PickTime time.Time `json:"pick_time"`
 
 	batch  *BatchInfo
 	picked bool
