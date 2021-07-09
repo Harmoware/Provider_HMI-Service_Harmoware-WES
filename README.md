@@ -45,17 +45,16 @@ id系は整数(不明の場合は`-1`)
 ### cmd:start
 - 出力: 次のピッキングアイテム
 - 形式: JSON 
-  - {"name":商品名, "position":{"x":x座標, "y":y座標}, "shelf":棚のID, "id":商品ID, "batch_id":バッチのID, "pick_time":ピッキング時刻}
+  - `{"name":商品名, "position":{"x":x座標, "y":y座標}, "shelf":棚のID, "id":商品ID, "batch_id":バッチのID, "pick_time":ピッキング時刻}`
 
 ### cmd:next
 - 出力: 次のピッキングアイテム
 - 形式: `cmd:start`と同じ
 
 ### cmd:finish
-- 出力: `finish`
-- 形式: string
+- 出力: `finish`と出力
 
 ### cmd:status
 - 出力: 現在のバッチの作業状況
 - 形式: JSON
-  - {"id":作業中バッチのid, "worker_id":作業者のid, "floor":階(int), "ship_pos":{"x":出荷場所のx座標, "y":出荷場所のy座標}, "items":商品の数分の`cmd:start`と同じ形式の配列, "start_time":作業中バッチの作業開始時刻}
+  - `{"id":作業中バッチのid, "worker_id":作業者のid, "floor":階(int), "ship_pos":{"x":出荷場所のx座標, "y":出荷場所のy座標}, "items":商品の数分の`cmd:start`と同じ形式の配列, "start_time":作業中バッチの作業開始時刻}`
