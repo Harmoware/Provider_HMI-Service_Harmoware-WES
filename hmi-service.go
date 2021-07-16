@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -46,7 +47,6 @@ func supplyWarehouseCallback(clt *sxutil.SXServiceClient, sp *api.Supply) {
 		// ignore my message.
 		return
 	}
-	//log.Printf("Receive Message! %s , %v", sp.SupplyName, sp)
 
 	switch sp.SupplyName {
 
@@ -81,14 +81,16 @@ func sendAll(mes []byte, mychan *chan []byte) {
 			//log.Printf("Not send myself %d", i)
 			continue
 		} else {
-			*v <- mes
+			out := fmt.Sprintf(`{"type":"send", "payload":%s}`, string(mes))
+			*v <- []byte(out)
 		}
 	}
 	smu.Unlock()
 }
 
-func sendWebSocketMsg(c *websocket.Conn, mt int, msg []byte) error {
-	err := c.WriteMessage(mt, []byte(msg))
+func sendWebSocketMsg(c *websocket.Conn, mt int, msg []byte, typ string) error {
+	out := fmt.Sprintf(`{"type":"%s", "payload":%s}`, typ, string(msg))
+	err := c.WriteMessage(mt, []byte(out))
 	if err != nil {
 		log.Println("Error during message writing:", err)
 		return err
@@ -125,7 +127,7 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 
 		// repeat message
 		if strings.HasPrefix(mes, "echo:") {
-			err := sendWebSocketMsg(c, mt, message[5:])
+			err := sendWebSocketMsg(c, mt, message[5:], "echo")
 			if err != nil {
 				continue
 			}
@@ -137,7 +139,7 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 
 		} else if strings.HasPrefix(mes, "cmd:") {
 			if user == nil {
-				sendWebSocketMsg(c, mt, []byte("please set id before command"))
+				sendWebSocketMsg(c, mt, []byte("please set id before command"), "error")
 				continue
 			}
 			//picking command
@@ -146,12 +148,12 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 				//start new batch
 				ok := user.OKBatch()
 				if ok != nil {
-					sendWebSocketMsg(c, mt, []byte(ok.Error()))
+					sendWebSocketMsg(c, mt, []byte(ok.Error()), "error")
 					continue
 				}
 				newb, err := bs.AssignBatch()
 				if err != nil {
-					sendWebSocketMsg(c, mt, []byte(err.Error()))
+					sendWebSocketMsg(c, mt, []byte(err.Error()), "error")
 					continue
 				}
 				user.SetBatch(newb)
@@ -163,11 +165,7 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 					log.Println(e)
 					continue
 				}
-				err = c.WriteMessage(mt, out)
-				if err != nil {
-					log.Println("Error during message writing:", err)
-					continue
-				}
+				sendWebSocketMsg(c, mt, out, "item")
 
 			} else if strings.HasPrefix(action, "status") {
 				// send status
@@ -176,21 +174,13 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 					log.Println(e)
 					continue
 				}
-				err := c.WriteMessage(mt, out)
-				if err != nil {
-					log.Println("Error during message writing:", err)
-					continue
-				}
+				sendWebSocketMsg(c, mt, out, "batch")
 
 			} else if strings.HasPrefix(action, "next") {
 				// next item
 				next, er := user.NextItem()
 				if er != nil {
-					err := c.WriteMessage(mt, []byte(er.Error()))
-					if err != nil {
-						log.Println("Error during message writing:", err)
-						continue
-					}
+					sendWebSocketMsg(c, mt, []byte(er.Error()), "error")
 				}
 				if !*nosx {
 					sx.SendMQTTGomessage(id, user.CurrentItem.Pos.X, user.CurrentItem.Pos.Y)
@@ -200,25 +190,14 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 					log.Println(e)
 					continue
 				}
-				err := c.WriteMessage(mt, out)
-				if err != nil {
-					log.Println("Error during message writing:", err)
-					continue
-				}
+				sendWebSocketMsg(c, mt, out, "item")
 			} else if strings.HasPrefix(action, "finish") {
 				er := user.FinishBatch()
 				if er != nil {
-					err := c.WriteMessage(mt, []byte(er.Error()))
-					if err != nil {
-						log.Println("Error during message writing:", err)
-						continue
-					}
-				}
-				err := c.WriteMessage(mt, []byte("finish"))
-				if err != nil {
-					log.Println("Error during message writing:", err)
+					sendWebSocketMsg(c, mt, []byte(er.Error()), "error")
 					continue
 				}
+				sendWebSocketMsg(c, mt, []byte("finish"), "finish")
 
 				// } else if strings.HasPrefix(action, "route") {
 				// 	var x, y float64
@@ -258,18 +237,10 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 
 			} else if strings.HasPrefix(action, "robot") {
 				// to do send robot information
-				err := c.WriteMessage(mt, []byte("test_robot0:00,00"))
-				if err != nil {
-					log.Println("Error during message writing:", err)
-					continue
-				}
+				sendWebSocketMsg(c, mt, []byte("test_robot0:00,00"), "robot")
 
 			} else {
-				err := c.WriteMessage(mt, []byte("unknown action"))
-				if err != nil {
-					log.Println("Error during message writing:", err)
-					continue
-				}
+				sendWebSocketMsg(c, mt, []byte("unknown action"), "error")
 			}
 
 		} else if strings.HasPrefix(mes, "id:") {
@@ -285,7 +256,6 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 				user = userList[int64(id)]
 				smu.Unlock()
 				user.Connect()
-
 			}
 		}
 	}

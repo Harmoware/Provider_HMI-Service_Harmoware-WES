@@ -39,22 +39,32 @@ trusco_field以外は`https://github.com/fukurin00/HMI-Services.git`のsubmodule
 10. `cmd:finish`でバッチの出荷完了
 
 # メッセージ形式
-時刻は `<Year>-<Month>-<Day>T<Hour>:<Minute>:<Second>Z`の形式で出力
-id系は整数(不明の場合は`-1`)
-エラーの場合はエラーメッセージをテキストとして出力
+`{"type":"<メッセージの種類>", "payload":<メッセージ>`
+## メッセージの種類
+- item
+  - `{"name":商品名, "position":{"x":x座標, "y":y座標}, "shelf":棚のID, "id":商品ID, "batch_id":バッチのID, "pick_time":ピッキング時刻}`
+- error
+  - `"エラーメッセージ"`
+- finish
+  - `"finish"`
+- batch
+  - `{"id":作業中バッチのid, "worker_id":作業者のid, "floor":階(int), "ship_pos":{"x":出荷場所のx座標, "y":出荷場所のy座標}, "items":商品の数分の`cmd:start`と同じ形式の配列, "start_time":作業中バッチの作業開始時刻}`
+- robot
+  - 実装中
+  - `テキスト`
+
+- 時刻は `<Year>-<Month>-<Day>T<Hour>:<Minute>:<Second>Z`の形式で出力
+- id系は整数(不明の場合は`-1`)
+
 ### cmd:start
 - 出力: 次のピッキングアイテム
-- 形式: JSON 
-  - `{"name":商品名, "position":{"x":x座標, "y":y座標}, "shelf":棚のID, "id":商品ID, "batch_id":バッチのID, "pick_time":ピッキング時刻}`
-
+- 形式: item  
 ### cmd:next
 - 出力: 次のピッキングアイテム、すべてピッキングされていたら出荷場所を指定
-- 形式: `cmd:start`と同じ
-
+- 形式: item
 ### cmd:finish
-- 出力: `finish`と出力
+- 出力: finish
 
 ### cmd:status
 - 出力: 現在のバッチの作業状況
-- 形式: JSON
-  - `{"id":作業中バッチのid, "worker_id":作業者のid, "floor":階(int), "ship_pos":{"x":出荷場所のx座標, "y":出荷場所のy座標}, "items":商品の数分の`cmd:start`と同じ形式の配列, "start_time":作業中バッチの作業開始時刻}`
+- 形式: batch
