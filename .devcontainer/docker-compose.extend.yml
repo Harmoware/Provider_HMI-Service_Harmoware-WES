@@ -1,0 +1,9 @@
+version: '3'
+services:
+    dev:
+        tty: true
+        build:
+            context: .devcontainer
+            dockerfile: Dockerfile
+        ports:
+            - "10090:10090"
