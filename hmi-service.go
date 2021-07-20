@@ -81,7 +81,7 @@ func sendAll(mes []byte, mychan *chan []byte) {
 			//log.Printf("Not send myself %d", i)
 			continue
 		} else {
-			out := fmt.Sprintf(`{"type":"send", "payload":%s}`, string(mes))
+			out := fmt.Sprintf(`{"type":"send", "payload":"%s"}`, string(mes))
 			*v <- []byte(out)
 		}
 	}
@@ -148,13 +148,13 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 				//start new batch
 				ok := user.OKBatch()
 				if ok != nil {
-					err_mes := string("\"" + ok.Error() + "\"")
+					err_mes := strconv.Quote(ok.Error())
 					sendWebSocketMsg(c, mt, []byte(err_mes), "error")
 					continue
 				}
 				newb, err := bs.AssignBatch()
 				if err != nil {
-					err_mes := string("\"" + err.Error() + "\"")
+					err_mes := strconv.Quote(err.Error())
 					sendWebSocketMsg(c, mt, []byte(err_mes), "error")
 					continue
 				}
@@ -182,7 +182,7 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 				// next item
 				next, er := user.NextItem()
 				if er != nil {
-					err_mes := string("\"" + er.Error() + "\"")
+					err_mes := strconv.Quote(err.Error())
 					sendWebSocketMsg(c, mt, []byte(err_mes), "error")
 				}
 				if !*nosx {
@@ -197,11 +197,11 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 			} else if strings.HasPrefix(action, "finish") {
 				er := user.FinishBatch()
 				if er != nil {
-					err_mes := string("\"" + er.Error() + "\"")
+					err_mes := strconv.Quote(er.Error())
 					sendWebSocketMsg(c, mt, []byte(err_mes), "error")
 					continue
 				}
-				sendWebSocketMsg(c, mt, []byte("finish"), "finish")
+				sendWebSocketMsg(c, mt, []byte(strconv.Quote("finish")), "finish")
 
 				// } else if strings.HasPrefix(action, "route") {
 				// 	var x, y float64
@@ -244,7 +244,7 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 				sendWebSocketMsg(c, mt, []byte("test_robot0:00,00"), "robot")
 
 			} else {
-				err_mes := string("\"" + "unknown action" + "\"")
+				err_mes := strconv.Quote("unknown action")
 				sendWebSocketMsg(c, mt, []byte(err_mes), "error")
 			}
 
