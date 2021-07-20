@@ -73,11 +73,11 @@ func (w *WorkerInfo) FinishBatch() error {
 	if w.CurrentBatch == nil {
 		return errors.New("worker: not working any batch")
 	}
-	if w.CurrentBatch.itemIndex < len(w.CurrentBatch.Items) {
+	if w.CurrentBatch.itemIndex < len(w.CurrentBatch.Items)-1 {
 		return errors.New("worker: please pick all item in your batch")
 	}
+	w.CurrentBatch.Finish()
 	w.CurrentBatch = nil
 	w.CurrentItem = nil
-	w.CurrentBatch.Finish()
 	return nil
 }
