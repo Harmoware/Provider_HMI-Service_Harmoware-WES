@@ -81,7 +81,7 @@ func sendAll(mes []byte, mychan *chan []byte) {
 			//log.Printf("Not send myself %d", i)
 			continue
 		} else {
-			out := fmt.Sprintf(`{"type":"send", "payload":%s}`, string(mes))
+			out := fmt.Sprintf(`{"type":"send", "payload":"%s"}`, string(mes))
 			*v <- []byte(out)
 		}
 	}
@@ -148,12 +148,14 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 				//start new batch
 				ok := user.OKBatch()
 				if ok != nil {
-					sendWebSocketMsg(c, mt, []byte(ok.Error()), "error")
+					err_mes := strconv.Quote(ok.Error())
+					sendWebSocketMsg(c, mt, []byte(err_mes), "error")
 					continue
 				}
 				newb, err := bs.AssignBatch()
 				if err != nil {
-					sendWebSocketMsg(c, mt, []byte(err.Error()), "error")
+					err_mes := strconv.Quote(err.Error())
+					sendWebSocketMsg(c, mt, []byte(err_mes), "error")
 					continue
 				}
 				user.SetBatch(newb)
@@ -180,7 +182,8 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 				// next item
 				next, er := user.NextItem()
 				if er != nil {
-					sendWebSocketMsg(c, mt, []byte(er.Error()), "error")
+					err_mes := strconv.Quote(err.Error())
+					sendWebSocketMsg(c, mt, []byte(err_mes), "error")
 				}
 				if !*nosx {
 					sx.SendMQTTGomessage(id, user.CurrentItem.Pos.X, user.CurrentItem.Pos.Y)
@@ -194,10 +197,11 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 			} else if strings.HasPrefix(action, "finish") {
 				er := user.FinishBatch()
 				if er != nil {
-					sendWebSocketMsg(c, mt, []byte(er.Error()), "error")
+					err_mes := strconv.Quote(er.Error())
+					sendWebSocketMsg(c, mt, []byte(err_mes), "error")
 					continue
 				}
-				sendWebSocketMsg(c, mt, []byte("finish"), "finish")
+				sendWebSocketMsg(c, mt, []byte(strconv.Quote("finish")), "finish")
 
 				// } else if strings.HasPrefix(action, "route") {
 				// 	var x, y float64
@@ -240,7 +244,8 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 				sendWebSocketMsg(c, mt, []byte("test_robot0:00,00"), "robot")
 
 			} else {
-				sendWebSocketMsg(c, mt, []byte("unknown action"), "error")
+				err_mes := strconv.Quote("unknown action")
+				sendWebSocketMsg(c, mt, []byte(err_mes), "error")
 			}
 
 		} else if strings.HasPrefix(mes, "id:") {
