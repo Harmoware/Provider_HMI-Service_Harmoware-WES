@@ -148,12 +148,14 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 				//start new batch
 				ok := user.OKBatch()
 				if ok != nil {
-					sendWebSocketMsg(c, mt, []byte(ok.Error()), "error")
+					err_mes := string("\"" + ok.Error() + "\"")
+					sendWebSocketMsg(c, mt, []byte(err_mes), "error")
 					continue
 				}
 				newb, err := bs.AssignBatch()
 				if err != nil {
-					sendWebSocketMsg(c, mt, []byte(err.Error()), "error")
+					err_mes := string("\"" + err.Error() + "\"")
+					sendWebSocketMsg(c, mt, []byte(err_mes), "error")
 					continue
 				}
 				user.SetBatch(newb)
@@ -180,7 +182,8 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 				// next item
 				next, er := user.NextItem()
 				if er != nil {
-					sendWebSocketMsg(c, mt, []byte(er.Error()), "error")
+					err_mes := string("\"" + er.Error() + "\"")
+					sendWebSocketMsg(c, mt, []byte(err_mes), "error")
 				}
 				if !*nosx {
 					sx.SendMQTTGomessage(id, user.CurrentItem.Pos.X, user.CurrentItem.Pos.Y)
@@ -194,7 +197,8 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 			} else if strings.HasPrefix(action, "finish") {
 				er := user.FinishBatch()
 				if er != nil {
-					sendWebSocketMsg(c, mt, []byte(er.Error()), "error")
+					err_mes := string("\"" + er.Error() + "\"")
+					sendWebSocketMsg(c, mt, []byte(err_mes), "error")
 					continue
 				}
 				sendWebSocketMsg(c, mt, []byte("finish"), "finish")
@@ -240,7 +244,8 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 				sendWebSocketMsg(c, mt, []byte("test_robot0:00,00"), "robot")
 
 			} else {
-				sendWebSocketMsg(c, mt, []byte("unknown action"), "error")
+				err_mes := string("\"" + "unknown action" + "\"")
+				sendWebSocketMsg(c, mt, []byte(err_mes), "error")
 			}
 
 		} else if strings.HasPrefix(mes, "id:") {
