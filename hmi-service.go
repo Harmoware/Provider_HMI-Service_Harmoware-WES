@@ -162,26 +162,26 @@ func handleWebsocket(w http.ResponseWriter, r *http.Request) {
 				if !*nosx {
 					sx.SendMQTTGomessage(id, user.CurrentItem.Pos.X, user.CurrentItem.Pos.Y)
 				}
-				out, e := json.Marshal(user.CurrentItem)
-				if e != nil {
-					log.Println(e)
+				out, err := json.Marshal(user.CurrentItem)
+				if err != nil {
+					log.Println(err)
 					continue
 				}
 				sendWebSocketMsg(c, mt, out, "item")
 
 			} else if strings.HasPrefix(action, "status") {
 				// send status
-				out, e := json.Marshal(user.CurrentBatch)
-				if e != nil {
-					log.Println(e)
+				out, err := json.Marshal(user.CurrentBatch)
+				if err != nil {
+					log.Println(err)
 					continue
 				}
 				sendWebSocketMsg(c, mt, out, "batch")
 
 			} else if strings.HasPrefix(action, "next") {
 				// next item
-				next, er := user.NextItem()
-				if er != nil {
+				next, err := user.NextItem()
+				if err != nil {
 					err_mes := strconv.Quote(err.Error())
 					sendWebSocketMsg(c, mt, []byte(err_mes), "error")
 				}
